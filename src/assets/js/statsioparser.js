@@ -74,6 +74,7 @@ function statsTimeInfoTotal() {
     this.elapsed = 0;
 }
 
+// TODO CHECK is this deprecated?
 function determineLang(strRow){
     var lang = 1;
 
@@ -81,6 +82,7 @@ function determineLang(strRow){
     else if (strRow.substring(0, 7) === 'Tabla \'') { lang = 2; } // Spanish
     else if ($.trim(strRow.substring(0, 6)) === 'Tiempo') { lang = 2; } // Spanish
     else if ($.trim(strRow.substring(0, 7)) === 'Tiempos') { lang = 2; } // Spanish
+    else if (strRow.substring(0,7) === 'Tabelle \'') { lang = 3; } // German
 
     return lang;
 }
@@ -88,6 +90,9 @@ function determineLang(strRow){
 function determineLangFilename (langType) {
     var filename;
     switch(langType) {
+        case 'de': // German
+            filename = 'assets/data/languagetext-de.json'
+            break;
         case 'en': // English
             filename = 'assets/data/languagetext-en.json'
             break;
@@ -115,7 +120,8 @@ function infoReplace(strValue, searchValue, newvValue) {
 function determineRowType(strRow, langText) {
     var rowType = rowEnum.None;
 
-    if (strRow.substring(0, 7) === langText.table) {
+    if ((strRow.substring(0, 7) === langText.table)
+        || (langText.table[0] == '-' && strRow.indexOf(langText.table) > -1))  {
         rowType = rowEnum.IO;
     } else if ($.trim(strRow) === langText.executiontime) {
         rowType = rowEnum.ExectuionTime;
@@ -123,7 +129,7 @@ function determineRowType(strRow, langText) {
         rowType = rowEnum.CompileTime;
     } else if (strRow.indexOf(langText.rowsaffected) > -1) {
         rowType = rowEnum.RowsAffected;
-    } else if (strRow.substring(0,3) === langText.errormsg) {
+    } else if (strRow.indexOf(langText.errormsg) > -1) {
         rowType = rowEnum.Error;
     }
 
@@ -139,6 +145,11 @@ function processTimeRegEx(preText, postText) {
 function processTime(line, cputime, elapsedtime, milliseconds) {
     var section = line.split(',');
 
+    // German SQL Server 2014 returns a leading comma
+    if(section[0] == ''){
+        section.splice(0, 1);
+    }
+
     var re = processTimeRegEx(cputime, milliseconds);
     var re2 = processTimeRegEx(elapsedtime, milliseconds);
 
@@ -147,7 +158,7 @@ function processTime(line, cputime, elapsedtime, milliseconds) {
 
 function processIOTableRow(line, tableResult, langText) {
     var section = line.split('\.');
-    var tableName = getSubStr(section[0], '\'')
+    var tableName = langText.table[0]=='-' ? section[0].substring(0, section[0].indexOf('-')) : getSubStr(section[0], '\'');
     var tableData = section[1];
 
     // If not a statistics IO statement then end table (if necessary) and write line ending in <br />
